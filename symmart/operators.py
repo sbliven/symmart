@@ -1,0 +1,2 @@
+"""Manipulate symmetry groups algebraically
+"""

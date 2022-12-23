@@ -8,9 +8,10 @@ import numpy as np
 from PIL import Image
 from scipy import interpolate
 
-from .farris import grid_points
-from .util import unit_box
+from .util import unit_box, grid_points
 
+
+# Synthetic wheels
 
 def wheel_6(z, radius=1.0):
     """Color wheel with 6-fold hues, white near 0, and fading to black beyond radius"""
@@ -22,6 +23,29 @@ def wheel_6(z, radius=1.0):
     g = np.where(z.imag * sq3 >= z.real, hue, radial)
     b = np.where(z.imag * sq3 <= -z.real, hue, radial)
     return np.stack((r, g, b), axis=1)
+
+
+def wheel_gradiant(z, radius=1.0, hue_steps=6, white_radius=.2, hue_round=np.round):
+    """Color wheel with n-fold hues, white near 0, and fading to black beyond radius
+
+    This mimics the wheel in Figure 6.1b of Farris.
+
+    Colors start with red centered along the positive real axis with hue increasing
+    counterclockwise. After a sharp white circle at the center, saturated color bands
+    fade to black at 2*radius.
+
+    Args:
+    - radius: half the radius of full-black
+    - hue_steps: number of colors
+    """
+    r = np.abs(z)
+    θ = np.arctan2(z.imag, z.real) / 2 / np.pi  # in turns
+    h = hue_round(θ * hue_steps) / hue_steps
+    s = 1
+    slope = .25/(white_radius - radius)
+    intercept = .5-slope*white_radius
+    l = np.where(r < white_radius, 1, np.maximum(slope * r + intercept, 0))
+    return hsl2rgb(h, s, l)
 
 
 def wheel_stepped(
@@ -83,14 +107,18 @@ def hsl2rgb(h, s, l):
     return rgb
 
 
-#     c = (1 - np.abs(2*l-1))*s
-#     m = l - c/2
+# Image wheel
 
 
-def image_wheel(filename, limits=unit_box, background=(0, 0, 0)):
-    "A color wheel derived from an image"
+def image_wheel(filename:str, limits=unit_box, background=(0, 0, 0) ):
+    """A color wheel derived from an image
+
+    Args:
+    - filename: image filename
+    - limits: 2-tuple giving the range of the wheel in complex space
+    """
     img = np.asarray(Image.open(filename).convert("RGB"))
-    return raster_wheel(img, limits=limits, background=background)
+    return raster_wheel(img, limits=limits, background=background, fix_aspect=fix_aspect)
 
 
 # def raster_wheel(img, limits=(-1 - 1j, 1 + 1j),kind="linear"):
@@ -106,7 +134,7 @@ def image_wheel(filename, limits=unit_box, background=(0, 0, 0)):
 #     return functools.partial(wheel, r,g,b)
 
 
-def raster_wheel(img, limits=unit_box, background=(0, 0, 0)):
+def raster_wheel(img, limits=unit_box, background=(0, 0, 0), fix_aspect=True):
     """A color wheel derived from a MxNx3 matrix
 
     Args:
@@ -114,7 +142,7 @@ def raster_wheel(img, limits=unit_box, background=(0, 0, 0)):
     - limits: bounding box to contain the image
     """
     h, w, _ = img.shape
-    x, y = grid_points(h, w, limits=limits, fix_aspect=True)
+    x, y = grid_points(h, w, limits=limits, fix_aspect=fix_aspect)
     y = np.flip(y)
     img = img.transpose(1, 0, 2)
     img = np.flip(img, axis=1)
@@ -136,24 +164,7 @@ def raster_wheel(img, limits=unit_box, background=(0, 0, 0)):
     return wheel
 
 
-def torus(limits=unit_box):
-    """Wrap the complex plane to a rectangular patch"""
-    period = limits[1] - limits[0]
-    origin = limits[0]
-
-    def wheel(z):
-        return (
-            np.mod(z.real - origin.real, period.real)
-            + 1j * np.mod(z.imag - origin.imag, period.imag)
-            + origin
-        )
-
-    return wheel
-
-
-def translate(delta):
-    return lambda z: z + delta
-
+# Wheel transformations
 
 def invert_wheel(wheel):
     """Modify a color wheel to invert all colors"""
