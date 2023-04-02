@@ -2,6 +2,7 @@ import numpy as np
 
 unit_box = np.array([-1 - 1j, 1 + 1j])
 
+
 def grid_points(height, width, limits=unit_box, fix_aspect=True):
     """x,y grid points for use building a 2D grid of complex numbers
 

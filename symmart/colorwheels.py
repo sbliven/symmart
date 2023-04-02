@@ -8,10 +8,10 @@ import numpy as np
 from PIL import Image
 from scipy import interpolate
 
-from .util import unit_box, grid_points
-
+from .util import grid_points, unit_box
 
 # Synthetic wheels
+
 
 def wheel_6(z, radius=1.0):
     """Color wheel with 6-fold hues, white near 0, and fading to black beyond radius"""
@@ -25,7 +25,7 @@ def wheel_6(z, radius=1.0):
     return np.stack((r, g, b), axis=1)
 
 
-def wheel_gradiant(z, radius=1.0, hue_steps=6, white_radius=.2, hue_round=np.round):
+def wheel_gradiant(z, radius=1.0, hue_steps=6, white_radius=0.2, hue_round=np.round):
     """Color wheel with n-fold hues, white near 0, and fading to black beyond radius
 
     This mimics the wheel in Figure 6.1b of Farris.
@@ -42,8 +42,8 @@ def wheel_gradiant(z, radius=1.0, hue_steps=6, white_radius=.2, hue_round=np.rou
     θ = np.arctan2(z.imag, z.real) / 2 / np.pi  # in turns
     h = hue_round(θ * hue_steps) / hue_steps
     s = 1
-    slope = .25/(white_radius - radius)
-    intercept = .5-slope*white_radius
+    slope = 0.25 / (white_radius - radius)
+    intercept = 0.5 - slope * white_radius
     l = np.where(r < white_radius, 1, np.maximum(slope * r + intercept, 0))
     return hsl2rgb(h, s, l)
 
@@ -110,7 +110,7 @@ def hsl2rgb(h, s, l):
 # Image wheel
 
 
-def image_wheel(filename:str, limits=unit_box, background=(0, 0, 0) ):
+def image_wheel(filename: str, limits=unit_box, background=(0, 0, 0), fix_aspect=True):
     """A color wheel derived from an image
 
     Args:
@@ -118,7 +118,9 @@ def image_wheel(filename:str, limits=unit_box, background=(0, 0, 0) ):
     - limits: 2-tuple giving the range of the wheel in complex space
     """
     img = np.asarray(Image.open(filename).convert("RGB"))
-    return raster_wheel(img, limits=limits, background=background, fix_aspect=fix_aspect)
+    return raster_wheel(
+        img, limits=limits, background=background, fix_aspect=fix_aspect
+    )
 
 
 # def raster_wheel(img, limits=(-1 - 1j, 1 + 1j),kind="linear"):
@@ -165,6 +167,7 @@ def raster_wheel(img, limits=unit_box, background=(0, 0, 0), fix_aspect=True):
 
 
 # Wheel transformations
+
 
 def invert_wheel(wheel):
     """Modify a color wheel to invert all colors"""
