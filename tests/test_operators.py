@@ -61,62 +61,62 @@ def test_description():
         (𝜎x * 𝜌6).description()
 
 
-def test_in_unit_cell():
+def test_is_canonical():
     # Translational
-    assert 𝜏1.in_unit_cell()
-    assert 𝜏i.in_unit_cell()
-    assert not (𝜏1 ** -1).in_unit_cell()
-    assert not (𝜏1 * 𝜏i).in_unit_cell()
+    assert 𝜏1.is_canonical()
+    assert 𝜏i.is_canonical()
+    assert not (𝜏1 ** -1).is_canonical()
+    assert not (𝜏1 * 𝜏i).is_canonical()
 
     # identity
-    assert not MatrixOperator(sp.eye(3)).in_unit_cell()
+    assert not MatrixOperator(sp.eye(3)).is_canonical()
 
     # Point symm
-    assert (𝜏1 * 𝜌2).in_unit_cell()  # 2-fold rotation around (1/2, 0)
-    assert not (𝜏1 ** 2 * 𝜌2).in_unit_cell()  # 2-fold rotation around (1, 0)
-    assert not (𝜌2 * 𝜏1).in_unit_cell()  # around (-1/2,0)
+    assert (𝜏1 * 𝜌2).is_canonical()  # 2-fold rotation around (1/2, 0)
+    assert not (𝜏1 ** 2 * 𝜌2).is_canonical()  # 2-fold rotation around (1, 0)
+    assert not (𝜌2 * 𝜏1).is_canonical()  # around (-1/2,0)
 
     # Glides
-    assert (𝛾y).in_unit_cell()
-    assert (𝛾y ** 2).in_unit_cell()  # 𝜏i
-    assert not (𝛾y ** 3).in_unit_cell()
+    assert (𝛾y).is_canonical()
+    assert (𝛾y ** 2).is_canonical()  # 𝜏i
+    assert not (𝛾y ** 3).is_canonical()
 
     # glide reflection across x - y = 1/2 by (1/2, 1/2)
-    assert MatrixOperator([[0, 1, 1], [1, 0, 0], [0, 0, 1]]).in_unit_cell()
+    assert MatrixOperator([[0, 1, 1], [1, 0, 0], [0, 0, 1]]).is_canonical()
     # glide reflection across x - y = -1/2 by (1/2, 1/2)
-    assert not MatrixOperator([[0, 1, 0], [1, 0, 1], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[0, 1, 0], [1, 0, 1], [0, 0, 1]]).is_canonical()
 
     # glide reflection across x - 2⋅y = 1/2 by (1, 1/2)
-    assert MatrixOperator([[1, 0, 1], [1, -1, 0], [0, 0, 1]]).in_unit_cell()
+    assert MatrixOperator([[1, 0, 1], [1, -1, 0], [0, 0, 1]]).is_canonical()
     # glide reflection across x - 2⋅y = -1/2 by (1, 1/2)
-    assert not MatrixOperator([[1, 0, 1], [1, -1, 1], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[1, 0, 1], [1, -1, 1], [0, 0, 1]]).is_canonical()
 
     # glide reflection across x - 2⋅y = -5/2 by (1, 1/2)
-    assert not MatrixOperator([[1, 0, 1], [1, -1, 3], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[1, 0, 1], [1, -1, 3], [0, 0, 1]]).is_canonical()
 
     # glide reflection across x = 1/2 by (0, 1/2)
-    assert MatrixOperator([[-1, 0, 1], [-1, 1, 1], [0, 0, 1]]).in_unit_cell()
+    assert MatrixOperator([[-1, 0, 1], [-1, 1, 1], [0, 0, 1]]).is_canonical()
     # glide reflection across x = 1/2 by (0, -1/2)
-    assert not MatrixOperator([[-1, 0, 1], [-1, 1, 0], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[-1, 0, 1], [-1, 1, 0], [0, 0, 1]]).is_canonical()
 
     # reflections
-    assert 𝜎x.in_unit_cell(), 𝜎x.description()
+    assert 𝜎x.is_canonical(), 𝜎x.description()
     # reflection across x - y = -1
-    assert not MatrixOperator([[0, 1, -1], [2, -1, 2], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[0, 1, -1], [2, -1, 2], [0, 0, 1]]).is_canonical()
     # reflection across x - y = 1
-    assert not MatrixOperator([[0, 1, 1], [1, 0, -1], [0, 0, 1]]).in_unit_cell()
+    assert not MatrixOperator([[0, 1, 1], [1, 0, -1], [0, 0, 1]]).is_canonical()
     # reflection across x = y
-    assert MatrixOperator([[0, 1, 0], [1, 0, 0], [0, 0, 1]]).in_unit_cell()
+    assert MatrixOperator([[0, 1, 0], [1, 0, 0], [0, 0, 1]]).is_canonical()
     # glide reflection across y = 0 by (1, 0)
-    assert not (𝜎x * 𝜏1).in_unit_cell(), (𝜎x * 𝜏1).description()
+    assert not (𝜎x * 𝜏1).is_canonical(), (𝜎x * 𝜏1).description()
     # glide reflection across y = 0 by (2, 0)
-    assert not (𝜎x * 𝜏1 * 𝜏1).in_unit_cell(), (𝜎x * 𝜏1 * 𝜏1).description()
+    assert not (𝜎x * 𝜏1 * 𝜏1).is_canonical(), (𝜎x * 𝜏1 * 𝜏1).description()
 
 
 def test_wg_in_cell():
     for grp, ops in wg.items():
         for op in ops:
-            assert op.in_unit_cell(), f"{grp} operator {op} not in unit cell"
+            assert op.is_canonical(), f"{grp} operator {op} not in unit cell"
 
 
 def test_symm_group():

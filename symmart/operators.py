@@ -94,7 +94,7 @@ class MatrixOperator:
 
         return pts[0], vec[0], list(translation[:2, 2])
 
-    def in_unit_cell(self):
+    def is_canonical(self):
         """Check if the stable point/line of this operation is inside the unit cell
 
         Defined as:
@@ -237,10 +237,10 @@ def complete_group(generators):
     ops = dict()  # Use dict instead of set to preserve insertion order
     # Note: omits translational generators from results
     for g in generators:
-        if g.in_unit_cell():
+        if g.is_canonical():
             ops[g] = None
         i = g.inv()
-        if i.in_unit_cell():
+        if i.is_canonical():
             ops[i] = None
     n = 0
     while n < len(ops):
@@ -255,7 +255,7 @@ def complete_group(generators):
                 new = gen * op
 
                 # print(f"Considering {new}")
-                if new not in ops and new.in_unit_cell():
+                if new not in ops and new.is_canonical():
                     # print(f"Adding {new}")
                     ops[gen * op] = None
                 # elif new in ops:
