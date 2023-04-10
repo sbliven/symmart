@@ -9,6 +9,8 @@ from dash.dash_table.Format import Format, Scheme
 from . import colorwheels as cw
 from . import plane_fns as pf
 from .plane_fns import matrix_to_src, plane_fn_src
+from .unitcell import DashCellDiagram
+from dash.exceptions import PreventUpdate
 
 lattices = [
     "hexagonal",
@@ -91,11 +93,35 @@ def lattice_tab(app, lattices):
     )
     def balance_cell_callback(a_real, a_imag, b_real, b_imag, lattice):
         "Preserve cell constraints after updating a lattice vector"
-        a = a_real + a_imag * 1j
-        b = b_real + b_imag * 1j
-        a_changed = ctx.triggered_id is None or ctx.triggered_id.startswith("cell-a")
-        a, b = balance_cell(lattice, a, b, a_changed)
-        return a.real, a.imag, b.real, b.imag
+        try:
+            a = a_real + a_imag * 1j
+            b = b_real + b_imag * 1j
+            a_changed = ctx.triggered_id is None or ctx.triggered_id.startswith("cell-a")
+            a, b = balance_cell(lattice, a, b, a_changed)
+            return a.real, a.imag, b.real, b.imag
+        except TypeError:
+            raise PreventUpdate
+
+    @app.callback(
+        # Output("img-cell", "src"),
+        Output("div-cell", "children"),
+        Input("cell-a-real", "value"),
+        Input("cell-a-imag", "value"),
+        Input("cell-b-real", "value"),
+        Input("cell-b-imag", "value"),
+        Input("lattice-dropdown", "value"),
+    )
+    def draw_cell_diagram(a_real, a_imag, b_real, b_imag, lattice):
+        try:
+            a = a_real + a_imag * 1j
+            b = b_real + b_imag * 1j
+            dia = DashCellDiagram(100*a, 100*b)
+            dia.draw_cell()
+        except TypeError:
+            raise PreventUpdate
+
+
+        return dia.draw()
 
     return dcc.Tab(
         label="Lattice",
@@ -107,63 +133,87 @@ def lattice_tab(app, lattices):
                         [
                             dbc.Col(
                                 [
-                                    html.Label("Lattice"),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                [
+                                                    html.Label("Lattice"),
+                                                ],
+                                                width=1,
+                                            ),
+                                            dbc.Col(
+                                                [
+                                                    dcc.Dropdown(
+                                                        [
+                                                            l.capitalize()
+                                                            for l in lattices
+                                                        ],
+                                                        id="lattice-dropdown",
+                                                        value=lattices[0].capitalize(),
+                                                    ),
+                                                ]
+                                            ),
+                                        ]
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col([html.Label("a")], width=1),
+                                            dbc.Col(
+                                                [
+                                                    dcc.Input(
+                                                        id="cell-a-real",
+                                                        value=1,
+                                                        type="number",
+                                                        style={"width": "4em"},
+                                                    ),
+                                                    html.Span(" + "),
+                                                    dcc.Input(
+                                                        id="cell-a-imag",
+                                                        value=0,
+                                                        type="number",
+                                                        style={"width": "4em"},
+                                                    ),
+                                                    html.Em("i"),
+                                                ]
+                                            ),
+                                        ]
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col([html.Label("b")], width=1),
+                                            dbc.Col(
+                                                [
+                                                    dcc.Input(
+                                                        id="cell-b-real",
+                                                        value=1,
+                                                        type="number",
+                                                        style={"width": "4em"},
+                                                    ),
+                                                    html.Span(" + "),
+                                                    dcc.Input(
+                                                        id="cell-b-imag",
+                                                        value=0,
+                                                        type="number",
+                                                        style={"width": "4em"},
+                                                    ),
+                                                    html.Em("i"),
+                                                ]
+                                            ),
+                                        ]
+                                    ),
                                 ],
-                                width=1,
+                                width=6,
                             ),
                             dbc.Col(
                                 [
-                                    dcc.Dropdown(
-                                        [l.capitalize() for l in lattices],
-                                        id="lattice-dropdown",
-                                        value=lattices[0].capitalize(),
-                                    ),
-                                ]
-                            ),
-                        ]
-                    ),
-                    dbc.Row(
-                        [
-                            dbc.Col([html.Label("a")], width=1),
-                            dbc.Col(
-                                [
-                                    dcc.Input(
-                                        id="cell-a-real",
-                                        value=1,
-                                        type="number",
-                                        style={"width": "4em"},
-                                    ),
-                                    html.Span(" + "),
-                                    dcc.Input(
-                                        id="cell-a-imag",
-                                        value=0,
-                                        type="number",
-                                        style={"width": "4em"},
-                                    ),
-                                    html.Em("i"),
-                                ]
-                            ),
-                        ]
-                    ),
-                    dbc.Row(
-                        [
-                            dbc.Col([html.Label("b")], width=1),
-                            dbc.Col(
-                                [
-                                    dcc.Input(
-                                        id="cell-b-real",
-                                        value=1,
-                                        type="number",
-                                        style={"width": "4em"},
-                                    ),
-                                    html.Span(" + "),
-                                    dcc.Input(
-                                        id="cell-b-imag",
-                                        value=0,
-                                        type="number",
-                                        style={"width": "4em"},
-                                    ),
-                                    html.Em("i"),
+                                    html.Div(
+                                        id="div-cell",
+                                        style={
+                                            "width": "100%",
+                                            "minWidth": 50,
+                                            "minHeight": 50,
+                                        },
+                                    )
                                 ]
                             ),
                         ]

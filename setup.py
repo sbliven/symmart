@@ -36,6 +36,7 @@ test_requirements = [
 app_requirements = [
     "dash",
     "dash-bootstrap-components",
+    "dash-svg"
     "svgwrite",
 ]
 

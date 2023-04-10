@@ -1,5 +1,7 @@
+from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
+import dash_svg as dsvg
 import numpy as np
 import svgwrite
 import sympy as sp
@@ -7,15 +9,33 @@ import sympy as sp
 from .operators import MatrixOperator, complete_group
 
 
-class CellDiagram:
+class CellDiagram(ABC):
     def __init__(self, a: complex, b: complex, **kwargs):
         self.a = a
         self.b = b
         self.margin = 10
-        self._diagram = svgwrite.Drawing(**kwargs)
-        self._coord = self._diagram.add(
-            self._diagram.g(transform=f"matrix(1 0 0 -1 0 0)")
-        )
+
+    @abstractmethod
+    def _set_viewbox(self, minx=0, miny=0, width=0, height=0):
+        ...
+
+    @abstractmethod
+    def _draw_ellipse(self, center, r):
+        ...
+
+    @abstractmethod
+    def _draw_line(
+        self, start, end, stroke_width=None, stroke=None, stroke_dasharray=None
+    ):
+        ...
+
+    @abstractmethod
+    def _draw_circle(self, center, r, fill="red"):
+        ...
+
+    @abstractmethod
+    def _draw_polygon(self, points):
+        ...
 
     def draw_cell(self):
         corners = np.array((0, self.a, self.a + self.b, self.b))
@@ -29,7 +49,7 @@ class CellDiagram:
         #     )
         # )
 
-        self._diagram.viewbox(
+        self._set_viewbox(
             xmin - self.margin,
             ymin - ymax - self.margin,
             xmax - xmin + self.margin * 2,
@@ -38,22 +58,22 @@ class CellDiagram:
         for i in range(4):
             start = corners[i]
             end = corners[(i + 1) % 4]
-            self._coord.add(
-                self._diagram.line(
-                    start=(start.real, start.imag),
-                    end=(end.real, end.imag),
-                    stroke_width="1",
-                    stroke="black",
-                )
+            self._draw_line(
+                start=(start.real, start.imag),
+                end=(end.real, end.imag),
+                stroke_width="1",
+                stroke="black",
             )
-        self._coord.add(self._diagram.circle(center=(0, 0), r=1, fill="red"))
-        return self._diagram
+        self._draw_circle(center=(0, 0), r=1, fill="red")
+        return self
 
     def draw_ops(self, ops, expand=True):
+        "Draw unit cell operators"
         if expand:
             ops = complete_group(ops)
 
         def sg_order(op):
+            "Layer order for ops"
             return "𝜏𝜎𝛾𝜌".index(op.symm_group()[0])
 
         for op in sorted(nonredundant(ops), key=sg_order):
@@ -71,18 +91,20 @@ class CellDiagram:
                 self._draw_glide(op)
             else:
                 raise ValueError(f"Unimplemented operator {sg}{order}")
-        return self._diagram
+        return self
+
+    @abstractmethod
+    def draw(self):
+        ...
 
     def _draw_rot2(self, op):
         fixed_lat = op.fixed_point()  # lattice coords
         fixed_real = self.a * float(fixed_lat[0]) + self.b * float(fixed_lat[1])
         size = 5
-        self._coord.add(
-            self._diagram.ellipse(
-                center=(fixed_real.real, fixed_real.imag), r=(size / 2, size)
-            )
+        self._draw_ellipse(
+            center=(fixed_real.real, fixed_real.imag), r=(size / 2, size)
         )
-        return self._diagram
+        return self
 
     def _draw_rot(self, op, n):
         fixed_lat = op.fixed_point()  # lattice coords
@@ -93,8 +115,8 @@ class CellDiagram:
             + r * np.exp(2j * np.pi * (i / n + 1 / 4 + ((n + 1) % 2) / 2 / n))
             for i in range(n)
         ]
-        self._coord.add(self._diagram.polygon([(p.real, p.imag) for p in points]))
-        return self._diagram
+        self._draw_polygon([(p.real, p.imag) for p in points])
+        return self
 
     def _draw_reflection(self, op):
         spacing = 1  # stroke width
@@ -117,35 +139,30 @@ class CellDiagram:
         start = self.a * float(px + lx * t0) + self.b * float(py + ly * t0)
         end = self.a * float(px + lx * t1) + self.b * float(py + ly * t1)
 
-        self._coord.add(
-            self._diagram.line(
-                start=(start.real, start.imag),
-                end=(end.real, end.imag),
-                stroke_width=spacing * 3,
-                stroke="white",
-            )
+        self._draw_line(
+            start=(start.real, start.imag),
+            end=(end.real, end.imag),
+            stroke_width=spacing * 3,
+            stroke="white",
         )
 
         norm = spacing * 1j * (end - start) / abs(end - start)
 
-        self._coord.add(
-            self._diagram.line(
-                start=((start + norm).real, (start + norm).imag),
-                end=((end + norm).real, (end + norm).imag),
-                stroke_width=spacing,
-                stroke="grey",
-            )
-        )
-        self._coord.add(
-            self._diagram.line(
-                start=((start - norm).real, (start - norm).imag),
-                end=((end - norm).real, (end - norm).imag),
-                stroke_width=spacing,
-                stroke="grey",
-            )
+        self._draw_line(
+            start=((start + norm).real, (start + norm).imag),
+            end=((end + norm).real, (end + norm).imag),
+            stroke_width=spacing,
+            stroke="grey",
         )
 
-        return self._diagram
+        self._draw_line(
+            start=((start - norm).real, (start - norm).imag),
+            end=((end - norm).real, (end - norm).imag),
+            stroke_width=spacing,
+            stroke="grey",
+        )
+
+        return self
 
     def _draw_glide(self, op):
         (px, py), (lx, ly), _ = op.stable_line()
@@ -166,19 +183,98 @@ class CellDiagram:
         start = self.a * float(px + lx * t0) + self.b * float(py + ly * t0)
         end = self.a * float(px + lx * t1) + self.b * float(py + ly * t1)
 
+        self._draw_line(
+            start=(start.real, start.imag),
+            end=(end.real, end.imag),
+            stroke_width="1",
+            stroke="grey",
+            stroke_dasharray="4,4",
+        )
+
+        return self
+
+
+class SvgwriteCellDiagram(CellDiagram):
+    def __init__(self, a: complex, b: complex, **kwargs):
+        super().__init__(a, b)
+        self._diagram = svgwrite.Drawing(**kwargs)
+        self._coord = self._diagram.add(
+            self._diagram.g(transform="matrix(1 0 0 -1 0 0)")
+        )
+
+    def tostring(self):
+        return self._diagram.tostring()
+
+    def draw(self):
+        return self._diagram
+
+    def _set_viewbox(self, minx=0, miny=0, width=0, height=0):
+        self._diagram.viewbox(minx, miny, width, height)
+
+    def _draw_ellipse(self, center, r):
+        self._coord.add(self._diagram.ellipse(center=center, r=r))
+
+    def _draw_line(
+        self, start, end, stroke_width=None, stroke=None, stroke_dasharray=None
+    ):
+        args = dict(
+            stroke_width=stroke_width, stroke=stroke, stroke_dasharray=stroke_dasharray
+        )
         self._coord.add(
             self._diagram.line(
-                start=(start.real, start.imag),
-                end=(end.real, end.imag),
-                stroke_width="1",
-                stroke="grey",
-                stroke_dasharray="4,4",
+                start=start, end=end, **{k: v for k, v in args.items() if v is not None}
             )
         )
+
+    def _draw_circle(self, center, r, fill="red"):
+        self._coord.add(self._diagram.circle(center=center, r=r, fill=fill))
+
+    def _draw_polygon(self, points):
+        self._coord.add(self._diagram.polygon(points))
+
+
+class DashCellDiagram(CellDiagram):
+    def __init__(self, a: complex, b: complex, **kwargs):
+        super().__init__(a, b, **kwargs)
+        self._coord = dsvg.G([], transform="matrix(1 0 0 -1 0 0)")
+        self._diagram = dsvg.Svg([self._coord], viewBox="0 0 100 100", **kwargs)
+
+    def draw(self):
         return self._diagram
+
+    def _set_viewbox(self, minx=0, miny=0, width=0, height=0):
+        self._diagram.viewBox = f"{minx} {miny} {width} {height}"
+
+    def _draw_ellipse(self, center, r):
+        self._coord.children.append(dsvg.Ellipse(center=center, r=r))
+
+    def _draw_line(
+        self, start, end, stroke_width=None, stroke=None, stroke_dasharray=None
+    ):
+        args = dict(
+            strokeWidth=stroke_width, stroke=stroke, strokeDasharray=stroke_dasharray
+        )
+        self._coord.children.append(
+            dsvg.Line(
+                x1=start[0],
+                y1=start[1],
+                x2=end[0],
+                y2=end[1],
+                **{k: v for k, v in args.items() if v is not None},
+            )
+        )
+
+    def _draw_circle(self, center, r, fill="red"):
+        self._coord.children.append(
+            dsvg.Circle(cx=center[0], cy=center[1], r=str(r), fill=fill)
+        )
+
+    def _draw_polygon(self, points):
+        self._coord.children.append(dsvg.Polygon(points))
 
 
 def nonredundant(ops: List[MatrixOperator]):
+    "Remove overlapping rotation operators"
     by_sg: Dict[str, List[Tuple[MatrixOperator, Optional[int]]]] = {}
     # Split by symm group
     for op in ops:
