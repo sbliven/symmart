@@ -18,6 +18,7 @@ requirements = [
     "scipy",
     "sympy",
     "plotly",
+    "importlib_resources",  # for python < 3.10
 ]
 
 setup_requirements = []

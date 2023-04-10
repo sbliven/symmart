@@ -57,7 +57,3 @@ wallpaper_generators = {
     "p6": [𝜏1, 𝜌6],
     "p6m": [𝜏1, 𝜌6, 𝜎x_hex],
 }
-
-wallpaper_operators = {
-    grp: complete_group(gens) for grp, gens in wallpaper_generators.items()
-}

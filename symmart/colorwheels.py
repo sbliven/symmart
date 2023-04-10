@@ -7,6 +7,7 @@ picture.
 import numpy as np
 from PIL import Image
 from scipy import interpolate
+from importlib_resources import files  # backport for python < 3.9
 
 from .util import grid_points, unit_box
 
@@ -212,3 +213,24 @@ def reflect_x_wheel(wheel, strip_width=0.05, stripe_color=(0, 0, 0)):
         return colors
 
     return modify
+
+
+class LazyWheel:
+    """Lazily loads an image wheel from the package data files"""
+
+    def __init__(self, path, **kwargs):
+        """
+        Args:
+        - path: name of an image file in symmart.images
+        - kwargs: args to pass to image_wheel
+        """
+        self._wheel = None
+        self._path = path
+        self._kwargs = kwargs
+
+    def __call__(self, *args, **kwargs):
+        if self._wheel is None:
+            self._wheel = image_wheel(
+                files("symmart.images").joinpath(self._path), **self._kwargs
+            )
+        return self._wheel(*args, **kwargs)

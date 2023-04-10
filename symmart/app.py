@@ -1,4 +1,6 @@
+import base64
 from functools import partial
+from io import BytesIO
 
 import dash_bootstrap_components as dbc
 import numpy as np
@@ -6,14 +8,43 @@ import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dash_table, dcc, html
 from dash.dash_table.Format import Format, Scheme
 from dash.exceptions import PreventUpdate
+from PIL import Image
 
 from . import colorwheels as cw
 from . import plane_fns as pf
 from .plane_fns import matrix_to_src, plane_fn_src
 from .unitcell import DashCellDiagram
-from .wallpaper_groups import wallpaper_generators, wallpaper_lattices
+from .util import metricunit
+from .wallpaper_groups import wallpaper_lattices
 
 lattices = list(wallpaper_lattices.keys())
+
+wheels = {
+    "Hue-saturation-lightness": cw.hsl_wheel,
+    "4-fold stepped": partial(cw.wheel_stepped, hue_steps=4, l_steps=4),
+    "5-fold stepped": partial(cw.wheel_stepped, hue_steps=5, l_steps=4),
+    "6-fold stepped": partial(cw.wheel_stepped, hue_steps=6, l_steps=4),
+    "4-fold gradient": partial(cw.wheel_gradiant, hue_steps=4),
+    "5-fold gradient": partial(cw.wheel_gradiant, hue_steps=5),
+    "6-fold gradient": partial(cw.wheel_gradiant, hue_steps=6),
+    "6-fold wheel": cw.wheel_6,
+    "Image: Härtzlisee": cw.LazyWheel(
+        "haertzlisee.jpeg", background=(45, 118, 116), fix_aspect=True
+    ),
+}
+
+
+def get_colorwheel(tab, builtin, upload_content):
+    if tab == "tab-wheel-builtin":
+        return wheels[builtin]
+    elif tab == "tab-wheel-image":
+        if upload_content is None:
+            raise PreventUpdate
+        img, _ = parse_upload(upload_content)
+        arr = np.asarray(img.convert("RGB"))
+        return cw.raster_wheel(arr)
+    else:
+        raise ValueError(f"Unknown tab {tab}")
 
 
 def get_lattice_fn(lattice: str, a, b):
@@ -85,6 +116,15 @@ def default_cell_params(lattice):
         return 0.5 + 0.5j, 0.5 - 0.5j
     else:
         raise ValueError(f"Unknown lattice {lattice}")
+
+
+def parse_upload(contents):
+    content_type, content_string = contents.split(",")
+
+    decoded = base64.b64decode(content_string)
+
+    fp = BytesIO(decoded)
+    return Image.open(fp), len(decoded)
 
 
 def lattice_tab(app, lattices):
@@ -269,16 +309,22 @@ def lattice_tab(app, lattices):
 def wheel_tab(app, wheels):
     @app.callback(
         Output("img-wheel", "src"),
+        Input("tabs-wheels", "value"),
+        # Built-ins
         Input("colorwheel-dropdown", "value"),
+        # Image
+        Input("wheel-upload", "contents"),
+        # Scaling
         Input("colorwheel-x-min", "value"),
         Input("colorwheel-x-max", "value"),
         Input("colorwheel-y-min", "value"),
         Input("colorwheel-y-max", "value"),
     )
-    def update_colorwheel(value, xmin, xmax, ymin, ymax):
-        print(f"Updating to {value}")
-        wheel = wheels[value]
+    def update_colorwheel(
+        wheel_tab, wheel_dropdown, wheel_upload, xmin, xmax, ymin, ymax
+    ):
         limits = (xmin + ymin * 1j, xmax + ymax * 1j)
+        wheel = get_colorwheel(wheel_tab, wheel_dropdown, wheel_upload)
         return plane_fn_src(
             wheel=wheel,
             limits=limits,
@@ -286,19 +332,83 @@ def wheel_tab(app, wheels):
             height=400,
         )
 
+    @app.callback(
+        Output("upload-info", "children"),
+        Input("wheel-upload", "contents"),
+        State("wheel-upload", "filename"),
+    )
+    def update_output(contents, filename):
+        if contents is not None:
+            img, size = parse_upload(contents)
+            return [
+                html.P(f"Filename: {filename}"),
+                html.P(f"Size: {metricunit(size, base=1024, sigfigs=3)}iB"),
+                html.P(f"Resolution: {img.width} x {img.height}"),
+            ]
+        else:
+            return []
+
+    tabs = [
+        dcc.Tab(
+            value="tab-wheel-builtin",
+            label="Built-in",
+            children=[
+                dcc.Dropdown(
+                    list(wheels.keys()),
+                    id="colorwheel-dropdown",
+                    value=next(iter(wheels.keys())),
+                )
+            ],
+        ),
+        dcc.Tab(
+            value="tab-wheel-image",
+            label="Image",
+            children=[
+                dcc.Upload(
+                    id="wheel-upload",
+                    children=html.Div(["Drag and Drop or ", html.A("Select Files")]),
+                    style={
+                        "width": "100%",
+                        "height": "60px",
+                        "lineHeight": "60px",
+                        "borderWidth": "1px",
+                        "borderStyle": "dashed",
+                        "borderRadius": "5px",
+                        "textAlign": "center",
+                        "margin": "10px",
+                    },
+                    multiple=False,
+                    accept="image/*",
+                ),
+                html.Div(id="upload-info"),
+            ],
+        ),
+    ]
+
+    @app.callback(Output("h3-active", "children"), Input("tabs-wheels", "value"))
+    def tabswitch(tab):
+        return f"Active: {tab}"
+
     return dcc.Tab(
         label="Color Wheel",
         value="tab-wheel",
         children=[
+            html.H3("Active: ", id="h3-active"),
             dbc.Row(
                 [
                     dbc.Col(
                         [
-                            dcc.Dropdown(
-                                list(wheels.keys()),
-                                id="colorwheel-dropdown",
-                                value=next(iter(wheels.keys())),
-                            ),
+                            dcc.Tabs(
+                                id="tabs-wheels",
+                                value="tab-wheel-builtin",
+                                children=tabs,
+                                vertical=True,
+                                # parent_style={"width": "100%"},
+                                # content_style={"width": "100%"},
+                                parent_className="container-fluid",
+                                content_className="col-9 ps-3",
+                                className="col-3",
+                            )
                         ],
                         width=6,
                     ),
@@ -368,7 +478,7 @@ def wheel_tab(app, wheels):
                         width=6,
                     ),
                 ]
-            )
+            ),
         ],
     )
 
@@ -376,13 +486,19 @@ def wheel_tab(app, wheels):
 def preview_tab(app, wheels, lattices):
     @app.callback(
         Output("img-preview", "src"),
+        # Color wheel
+        Input("tabs-wheels", "value"),
         Input("colorwheel-dropdown", "value"),
+        Input("wheel-upload", "contents"),
+        # Scaling
         Input("preview-x-min", "value"),
         Input("preview-x-max", "value"),
         Input("preview-y-min", "value"),
         Input("preview-y-max", "value"),
+        # Function
         Input("fourier-table", "data"),
         Input("fourier-table", "columns"),
+        # Cell
         Input("cell-a-real", "value"),
         Input("cell-a-imag", "value"),
         Input("cell-b-real", "value"),
@@ -390,7 +506,9 @@ def preview_tab(app, wheels, lattices):
         Input("lattice-dropdown", "value"),
     )
     def update_colorwheel(
-        value,
+        wheel_tab,
+        wheel_dropdown,
+        wheel_upload,
         xmin,
         xmax,
         ymin,
@@ -412,7 +530,7 @@ def preview_tab(app, wheels, lattices):
 
         df = pd.DataFrame(rows, columns=[c["name"] for c in columns])
         print(f"Got coefficients {df}")
-        wheel = wheels[value]
+        wheel = get_colorwheel(wheel_tab, wheel_dropdown, wheel_upload)
         limits = (xmin + ymin * 1j, xmax + ymax * 1j)
         return plane_fn_src(
             lattice_fn(df.a.astype(float), df.n.astype(int), df.m.astype(int)),
@@ -594,11 +712,6 @@ def make_app(app=None):
     if app is None:
         app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-    wheels = {
-        "4-fold stepped": partial(cw.wheel_stepped, hue_steps=4),
-        "6-fold wheel": cw.wheel_6,
-    }
-
     tabs = [
         lattice_tab(app, lattices),
         wheel_tab(app, wheels),
@@ -612,8 +725,7 @@ def make_app(app=None):
                 id="tabs",
                 value="tab-preview",
                 children=tabs,
-            ),
-            html.Div(id="tab-content"),
+            )
         ]
     )
 
