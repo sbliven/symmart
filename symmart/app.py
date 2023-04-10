@@ -5,31 +5,29 @@ import numpy as np
 import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dash_table, dcc, html
 from dash.dash_table.Format import Format, Scheme
+from dash.exceptions import PreventUpdate
 
 from . import colorwheels as cw
 from . import plane_fns as pf
 from .plane_fns import matrix_to_src, plane_fn_src
 from .unitcell import DashCellDiagram
-from dash.exceptions import PreventUpdate
+from .wallpaper_groups import wallpaper_generators, wallpaper_lattices
 
-lattices = [
-    "hexagonal",
-    "generic",
-    # "rhombic",
-    "rectangular",
-    # "square"
-]
+lattices = list(wallpaper_lattices.keys())
 
 
 def get_lattice_fn(lattice: str, a, b):
-    if lattice == "generic":
-        fn = pf.wallpaper_generic
-    # elif lattice == "rhombic":
-    #     fn = pf.wallpaper_rhombic
+    lattice = lattice.lower()
+    if lattice == "monoclinic" or lattice == "generic":
+        fn = partial(pf.wallpaper_generic, b / a)
+    elif lattice == "rhombic":
+        𝜔 = b / a
+        height = 𝜔.imag / 2 / (1 + 𝜔.real)
+        fn = partial(pf.wallpaper_rhombic, height)
     elif lattice == "rectangular":
-        fn = pf.wallpaper_rectangular
-    # elif lattice == "square":
-    #     fn = pf.wallpaper_square
+        fn = partial(pf.wallpaper_rectangular, np.abs(b / a))
+    elif lattice == "square":
+        fn = pf.wallpaper_square
     elif lattice == "hexagonal":
         fn = pf.wallpaper_hexagonal
     else:
@@ -40,29 +38,30 @@ def get_lattice_fn(lattice: str, a, b):
 
 def balance_cell(lattice, a, b, a_changed):
     "Preserve cell constraints after updating a lattice vector"
-    if lattice.lower() == "generic":
+    lattice = lattice.lower()
+    if lattice == "generic" or lattice == "monoclinic":
         # No constraints on generic cell
         pass
-    elif lattice.lower() == "hexagonal":
+    elif lattice == "hexagonal":
         # b = 𝜔3* a
         𝜔3 = np.exp(2j * np.pi / 3)
         if a_changed:
             b = 𝜔3 * a
         else:
             a = b / 𝜔3
-    elif lattice.lower() == "square":
+    elif lattice == "square":
         # b = i * a
         if a_changed:
             b = 1j * a
         else:
             a = -1j * b
-    elif lattice.lower() == "rectangular":
+    elif lattice == "rectangular":
         # b/|b| = i * a / |a|
         if a_changed:
             b = 1j * a * abs(b) / abs(a)
         else:
             a = -1j * b * abs(a) / abs(b)
-    elif lattice.lower() == "rhombic":
+    elif lattice == "rhombic":
         # |a| = |b|
         if a_changed:
             b = b * abs(a) / abs(b)
@@ -70,15 +69,30 @@ def balance_cell(lattice, a, b, a_changed):
             a = a * abs(b) / abs(a)
     else:
         raise ValueError(f"Unknown lattice {lattice}")
-    return a, b
+
+
+def default_cell_params(lattice):
+    lattice = lattice.lower()
+    if lattice == "generic" or lattice == "monoclinic":
+        return 1, 0.5 + 1j
+    elif lattice == "hexagonal":
+        return 1, np.exp(2j * np.pi / 3)
+    elif lattice == "square":
+        return 1, 1j
+    elif lattice == "rectangular":
+        return 1, 0.5j
+    elif lattice == "rhombic":
+        return 0.5 + 0.5j, 0.5 - 0.5j
+    else:
+        raise ValueError(f"Unknown lattice {lattice}")
 
 
 def lattice_tab(app, lattices):
     @app.callback(
-        Output("fourier-label", "children"), Input("lattice-dropdown", "value")
+        Output("fourier-label", "children"), Input("spacegroup-dropdown", "value")
     )
     def update_lattice(value):
-        return f"Fourier coefficients ({value.lower()} lattice)"
+        return f"Fourier coefficients ({value})"
 
     @app.callback(
         Output("cell-a-real", "value"),
@@ -96,8 +110,13 @@ def lattice_tab(app, lattices):
         try:
             a = a_real + a_imag * 1j
             b = b_real + b_imag * 1j
-            a_changed = ctx.triggered_id is None or ctx.triggered_id.startswith("cell-a")
-            a, b = balance_cell(lattice, a, b, a_changed)
+            changed = ctx.triggered_id
+            if changed == "lattice-dropdown":
+                a, b = default_cell_params(lattice)
+            else:
+                a_changed = changed is None or changed.startswith("cell-a")
+                a, b = balance_cell(lattice, a, b, a_changed)
+
             return a.real, a.imag, b.real, b.imag
         except TypeError:
             raise PreventUpdate
@@ -115,13 +134,21 @@ def lattice_tab(app, lattices):
         try:
             a = a_real + a_imag * 1j
             b = b_real + b_imag * 1j
-            dia = DashCellDiagram(100*a, 100*b)
+            dia = DashCellDiagram(100 * a, 100 * b)
             dia.draw_cell()
         except TypeError:
             raise PreventUpdate
 
-
         return dia.draw()
+
+    @app.callback(
+        Output("spacegroup-dropdown", "options"),
+        Output("spacegroup-dropdown", "value"),
+        Input("lattice-dropdown", "value"),
+    )
+    def update_spacegroup_dropdown(lattice):
+        spacegroups = wallpaper_lattices[lattice.lower()]
+        return spacegroups, spacegroups[0]
 
     return dcc.Tab(
         label="Lattice",
@@ -135,12 +162,7 @@ def lattice_tab(app, lattices):
                                 [
                                     dbc.Row(
                                         [
-                                            dbc.Col(
-                                                [
-                                                    html.Label("Lattice"),
-                                                ],
-                                                width=1,
-                                            ),
+                                            dbc.Col([html.Label("Lattice")], width=1),
                                             dbc.Col(
                                                 [
                                                     dcc.Dropdown(
@@ -150,7 +172,23 @@ def lattice_tab(app, lattices):
                                                         ],
                                                         id="lattice-dropdown",
                                                         value=lattices[0].capitalize(),
-                                                    ),
+                                                    )
+                                                ]
+                                            ),
+                                        ]
+                                    ),
+                                    dbc.Row(
+                                        [
+                                            dbc.Col(
+                                                [html.Label("Space Group")], width=1
+                                            ),
+                                            dbc.Col(
+                                                [
+                                                    dcc.Dropdown(
+                                                        ["p1"],
+                                                        id="spacegroup-dropdown",
+                                                        value="p1",
+                                                    )
                                                 ]
                                             ),
                                         ]
@@ -165,6 +203,7 @@ def lattice_tab(app, lattices):
                                                         value=1,
                                                         type="number",
                                                         style={"width": "4em"},
+                                                        debounce=True,
                                                     ),
                                                     html.Span(" + "),
                                                     dcc.Input(
@@ -172,6 +211,7 @@ def lattice_tab(app, lattices):
                                                         value=0,
                                                         type="number",
                                                         style={"width": "4em"},
+                                                        debounce=True,
                                                     ),
                                                     html.Em("i"),
                                                 ]
@@ -185,16 +225,18 @@ def lattice_tab(app, lattices):
                                                 [
                                                     dcc.Input(
                                                         id="cell-b-real",
-                                                        value=1,
+                                                        value=0,
                                                         type="number",
                                                         style={"width": "4em"},
+                                                        debounce=True,
                                                     ),
                                                     html.Span(" + "),
                                                     dcc.Input(
                                                         id="cell-b-imag",
-                                                        value=0,
+                                                        value=1,
                                                         type="number",
                                                         style={"width": "4em"},
+                                                        debounce=True,
                                                     ),
                                                     html.Em("i"),
                                                 ]
@@ -341,14 +383,37 @@ def preview_tab(app, wheels, lattices):
         Input("preview-y-max", "value"),
         Input("fourier-table", "data"),
         Input("fourier-table", "columns"),
+        Input("cell-a-real", "value"),
+        Input("cell-a-imag", "value"),
+        Input("cell-b-real", "value"),
+        Input("cell-b-imag", "value"),
         Input("lattice-dropdown", "value"),
     )
-    def update_colorwheel(value, xmin, xmax, ymin, ymax, rows, columns, lattice):
+    def update_colorwheel(
+        value,
+        xmin,
+        xmax,
+        ymin,
+        ymax,
+        rows,
+        columns,
+        a_real,
+        a_imag,
+        b_real,
+        b_imag,
+        lattice,
+    ):
+        try:
+            a = a_real + a_imag * 1j
+            b = b_real + b_imag * 1j
+            lattice_fn = get_lattice_fn(lattice, a, b)
+        except TypeError:
+            raise PreventUpdate
+
         df = pd.DataFrame(rows, columns=[c["name"] for c in columns])
         print(f"Got coefficients {df}")
         wheel = wheels[value]
         limits = (xmin + ymin * 1j, xmax + ymax * 1j)
-        lattice_fn = get_lattice_fn(lattice.lower(), None, None)
         return plane_fn_src(
             lattice_fn(df.a.astype(float), df.n.astype(int), df.m.astype(int)),
             wheel=wheel,

@@ -217,8 +217,8 @@ def wallpaper_hexagonal(a, n, m):
             np.exp(2j * np.pi * (n * X + m * Y))
             + np.exp(2j * np.pi * (m * X - (n + m) * Y))
             + np.exp(2j * np.pi * (-(n + m) * X + n * Y))
-        )
-        return (W @ a / 3).reshape(z.shape)
+        ) / 3
+        return (W @ a).reshape(z.shape)
 
     return f
 
@@ -238,6 +238,53 @@ def wallpaper_generic(ω, a, n, m):
         Y = Z.imag / ω.imag
         X = Z.real - ω.real * Y
         W = np.exp(2j * np.pi * (n * X + m * Y))
+        return (W @ a).reshape(z.shape)
+
+    return f
+
+
+def wallpaper_square(a, n, m):
+    """Wallpaper groups on a square lattice
+
+    Functions are represented as fourier coefficients a_nm
+    """
+    n = np.atleast_1d(n)[np.newaxis, :]
+    m = np.atleast_1d(m)[np.newaxis, :]
+    a = np.atleast_1d(a)[:, np.newaxis]
+
+    def f(z):
+        z = np.atleast_1d(z)
+        Z = z.flatten()[:, np.newaxis]
+        Y = Z.imag
+        X = Z.real
+        W = (
+            np.exp(2j * np.pi * (n * X + m * Y))
+            + np.exp(2j * np.pi * (m * X - n * Y))
+            + np.exp(2j * np.pi * (-n * X - m * Y))
+            + np.exp(2j * np.pi * (-m * X + n * Y))
+        ) / 4
+        return (W @ a).reshape(z.shape)
+
+    return f
+
+
+def wallpaper_rhombic(height, a, n, m):
+    """Wallpaper groups on a rhombic lattice
+
+    Functions are represented as fourier coefficients a_nm
+    """
+    n = np.atleast_1d(n)[np.newaxis, :]
+    m = np.atleast_1d(m)[np.newaxis, :]
+    a = np.atleast_1d(a)[:, np.newaxis]
+
+    def f(z):
+        z = np.atleast_1d(z)
+        Z = z.flatten()[:, np.newaxis]
+        X = Z.real + Z.imag / height / 2
+        Y = Z.real - Z.imag / height / 2
+        W = (
+            np.exp(2j * np.pi * (n * X + m * Y)) + np.exp(2j * np.pi * (m * X + n * Y))
+        ) / 2
         return (W @ a).reshape(z.shape)
 
     return f

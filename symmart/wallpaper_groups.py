@@ -23,36 +23,41 @@ _half = sp.sympify(1) / 2
 𝜌6 = MatrixOperator(𝜌3 ** 2 * 𝜌2, "𝜌6")
 
 
-def _make_wp_generators():
-    return {
-        # General
-        "p1": [𝜏1, 𝜏i],
-        "p2": [𝜏1, 𝜏i, 𝜌2],
-        # Rhombic
-        "cm": [𝜏1, 𝜎c],
-        "cmm": [𝜏1, 𝜎c, 𝜌2],
-        # "cm": [𝜏𝜔, 𝜎x],
-        # "cmm": [𝜏𝜔, 𝜎x, 𝜌2],
-        # Rectangular
-        "pm": [𝜏1, 𝜏i, 𝜎y],
-        "pg": [𝜏1, 𝛾y],
-        "pmm": [𝜏1, 𝜏i, 𝜌2, 𝜎x],
-        "pmg": [𝜏1, 𝜏i, 𝜌2, 𝛾y],
-        "pgg": [𝜏1, 𝜏i, 𝜌2, 𝛾q],
-        # Square
-        "p4": [𝜏1, 𝜌4],
-        "p4m": [𝜏1, 𝜌4, 𝜎c],
-        "p4g": [𝜏1, 𝜌4, 𝜎s],
-        # Hexagonal
-        "p3": [𝜏1, 𝜌3],
-        "p31m": [𝜏1, 𝜌3, 𝜎x_hex],
-        "p3m1": [𝜏1, 𝜌3, 𝜎y_hex],
-        "p6": [𝜏1, 𝜌6],
-        "p6m": [𝜏1, 𝜌6, 𝜎x_hex],
-    }
+wallpaper_lattices = {
+    "monoclinic": ["p1", "p2"],
+    "rhombic": ["cm", "cmm"],
+    "rectangular": ["pm", "pg", "pmm", "pmg", "pgg"],
+    "square": ["p4", "p4m", "p4g"],
+    "hexagonal": ["p3", "p31m", "p3m1", "p6", "p6m"],
+}
 
+wallpaper_generators = {
+    # General
+    "p1": [𝜏1, 𝜏i],
+    "p2": [𝜏1, 𝜏i, 𝜌2],
+    # Rhombic
+    "cm": [𝜏1, 𝜎c],
+    "cmm": [𝜏1, 𝜎c, 𝜌2],
+    # "cm": [𝜏𝜔, 𝜎x],
+    # "cmm": [𝜏𝜔, 𝜎x, 𝜌2],
+    # Rectangular
+    "pm": [𝜏1, 𝜏i, 𝜎y],
+    "pg": [𝜏1, 𝛾y],
+    "pmm": [𝜏1, 𝜏i, 𝜌2, 𝜎x],
+    "pmg": [𝜏1, 𝜏i, 𝜌2, 𝛾y],
+    "pgg": [𝜏1, 𝜏i, 𝜌2, 𝛾q],
+    # Square
+    "p4": [𝜏1, 𝜌4],
+    "p4m": [𝜏1, 𝜌4, 𝜎c],
+    "p4g": [𝜏1, 𝜌4, 𝜎s],
+    # Hexagonal
+    "p3": [𝜏1, 𝜌3],
+    "p31m": [𝜏1, 𝜌3, 𝜎x_hex],
+    "p3m1": [𝜏1, 𝜌3, 𝜎y_hex],
+    "p6": [𝜏1, 𝜌6],
+    "p6m": [𝜏1, 𝜌6, 𝜎x_hex],
+}
 
-wallpaper_generators = _make_wp_generators()
 wallpaper_operators = {
     grp: complete_group(gens) for grp, gens in wallpaper_generators.items()
 }
