@@ -167,10 +167,10 @@ def lattice_tab(app, lattices):
         except TypeError:
             raise PreventUpdate
         changed = ctx.triggered_id
-        if changed == "lattice-dropdown":
+        if changed is None or changed == "lattice-dropdown":
             a, b = default_cell_params(lattice)
         else:
-            a_changed = changed is None or changed.startswith("cell-a")
+            a_changed = changed.startswith("cell-a")
             a, b = balance_cell(lattice, a, b, a_changed)
         print(f"New cell {a}, {b}")
         return a.real, a.imag, b.real, b.imag
@@ -223,7 +223,8 @@ def lattice_tab(app, lattices):
                                                             for l in lattices
                                                         ],
                                                         id="lattice-dropdown",
-                                                        value=lattices[0].capitalize(),
+                                                        value="Hexagonal",
+                                                        clearable=False,
                                                     )
                                                 ]
                                             ),
@@ -240,6 +241,7 @@ def lattice_tab(app, lattices):
                                                         ["p1"],
                                                         id="spacegroup-dropdown",
                                                         value="p1",
+                                                        clearable=False,
                                                     )
                                                 ]
                                             ),
@@ -368,7 +370,8 @@ def wheel_tab(app, wheels):
                 dcc.Dropdown(
                     list(wheels.keys()),
                     id="colorwheel-dropdown",
-                    value=next(iter(wheels.keys())),
+                    value="Image: Härtzlisee",
+                    clearable=False,
                 )
             ],
         ),
@@ -599,6 +602,7 @@ def preview_tab(app, wheels, lattices):
                                 ],
                                 editable=True,
                                 row_deletable=True,
+                                sort_action="native",
                             ),
                             html.Button("Add row", id="btn-add-row", n_clicks=0),
                         ],
