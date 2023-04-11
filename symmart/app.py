@@ -15,7 +15,7 @@ from . import plane_fns as pf
 from .plane_fns import matrix_to_src, plane_fn_src
 from .unitcell import DashCellDiagram
 from .util import metricunit
-from .wallpaper_groups import wallpaper_lattices
+from .wallpaper_groups import wallpaper_generators, wallpaper_lattices
 
 lattices = list(wallpaper_lattices.keys())
 
@@ -67,7 +67,9 @@ def get_lattice_fn(lattice: str, a, b):
     return fn
 
 
-def balance_cell(lattice, a, b, a_changed):
+def balance_cell(
+    lattice: str, a: complex, b: complex, a_changed: bool
+) -> tuple[complex, complex]:
     "Preserve cell constraints after updating a lattice vector"
     lattice = lattice.lower()
     if lattice == "generic" or lattice == "monoclinic":
@@ -100,6 +102,8 @@ def balance_cell(lattice, a, b, a_changed):
             a = a * abs(b) / abs(a)
     else:
         raise ValueError(f"Unknown lattice {lattice}")
+
+    return a, b
 
 
 def default_cell_params(lattice):
@@ -135,6 +139,16 @@ def lattice_tab(app, lattices):
         return f"Fourier coefficients ({value})"
 
     @app.callback(
+        Output("spacegroup-dropdown", "options"),
+        Output("spacegroup-dropdown", "value"),
+        Input("lattice-dropdown", "value"),
+    )
+    def update_spacegroup_dropdown(lattice):
+        spacegroups = wallpaper_lattices[lattice.lower()]
+        print(f"New sg {spacegroups[0]}")
+        return spacegroups, spacegroups[0]
+
+    @app.callback(
         Output("cell-a-real", "value"),
         Output("cell-a-imag", "value"),
         Output("cell-b-real", "value"),
@@ -150,45 +164,43 @@ def lattice_tab(app, lattices):
         try:
             a = a_real + a_imag * 1j
             b = b_real + b_imag * 1j
-            changed = ctx.triggered_id
-            if changed == "lattice-dropdown":
-                a, b = default_cell_params(lattice)
-            else:
-                a_changed = changed is None or changed.startswith("cell-a")
-                a, b = balance_cell(lattice, a, b, a_changed)
-
-            return a.real, a.imag, b.real, b.imag
         except TypeError:
             raise PreventUpdate
+        changed = ctx.triggered_id
+        if changed == "lattice-dropdown":
+            a, b = default_cell_params(lattice)
+        else:
+            a_changed = changed is None or changed.startswith("cell-a")
+            a, b = balance_cell(lattice, a, b, a_changed)
+        print(f"New cell {a}, {b}")
+        return a.real, a.imag, b.real, b.imag
 
     @app.callback(
-        # Output("img-cell", "src"),
-        Output("div-cell", "children"),
+        Output("div-celldiagram", "children"),
         Input("cell-a-real", "value"),
         Input("cell-a-imag", "value"),
         Input("cell-b-real", "value"),
         Input("cell-b-imag", "value"),
-        Input("lattice-dropdown", "value"),
+        Input("spacegroup-dropdown", "value"),
+        State("lattice-dropdown", "value"),
     )
-    def draw_cell_diagram(a_real, a_imag, b_real, b_imag, lattice):
+    def draw_cell_diagram(a_real, a_imag, b_real, b_imag, spacegroup, lattice):
         try:
             a = a_real + a_imag * 1j
             b = b_real + b_imag * 1j
-            dia = DashCellDiagram(100 * a, 100 * b)
-            dia.draw_cell()
         except TypeError:
             raise PreventUpdate
+        dia = DashCellDiagram(100 * a, 100 * b)
+        dia.draw_cell()
+        if spacegroup is not None:
+            gen = wallpaper_generators[spacegroup.lower()]
+            dia.draw_ops(gen)
+        print(f"Updating cell diagram for {spacegroup}")
+        svg = dia.draw()
+        if type(svg).__name__ != "Svg":
+            type(svg)
 
-        return dia.draw()
-
-    @app.callback(
-        Output("spacegroup-dropdown", "options"),
-        Output("spacegroup-dropdown", "value"),
-        Input("lattice-dropdown", "value"),
-    )
-    def update_spacegroup_dropdown(lattice):
-        spacegroups = wallpaper_lattices[lattice.lower()]
-        return spacegroups, spacegroups[0]
+        return [svg]
 
     return dcc.Tab(
         label="Lattice",
@@ -289,7 +301,7 @@ def lattice_tab(app, lattices):
                             dbc.Col(
                                 [
                                     html.Div(
-                                        id="div-cell",
+                                        id="div-celldiagram",
                                         style={
                                             "width": "100%",
                                             "minWidth": 50,
@@ -529,7 +541,6 @@ def preview_tab(app, wheels, lattices):
             raise PreventUpdate
 
         df = pd.DataFrame(rows, columns=[c["name"] for c in columns])
-        print(f"Got coefficients {df}")
         wheel = get_colorwheel(wheel_tab, wheel_dropdown, wheel_upload)
         limits = (xmin + ymin * 1j, xmax + ymax * 1j)
         return plane_fn_src(
@@ -728,14 +739,6 @@ def make_app(app=None):
             )
         ]
     )
-
-    # @callback(Output("tab-content", "children"), Input("tabs", "value"))
-    # def render_content(tab):
-    #     if tab == "tab-lattice":
-    #     elif tab == "tab-wheel":
-    #     elif tab == "tab-preview":
-
-    #     elif tab == "tab-export":
 
     return app
 

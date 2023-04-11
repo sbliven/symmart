@@ -5,9 +5,9 @@ picture.
 """
 
 import numpy as np
+from importlib_resources import files  # backport for python < 3.9
 from PIL import Image
 from scipy import interpolate
-from importlib_resources import files  # backport for python < 3.9
 
 from .util import grid_points, unit_box
 

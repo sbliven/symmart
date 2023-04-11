@@ -246,7 +246,9 @@ class DashCellDiagram(CellDiagram):
         self._diagram.viewBox = f"{minx} {miny} {width} {height}"
 
     def _draw_ellipse(self, center, r):
-        self._coord.children.append(dsvg.Ellipse(center=center, r=r))
+        self._coord.children.append(
+            dsvg.Ellipse(cx=center[0], cy=center[1], rx=r[0], ry=r[1])
+        )
 
     def _draw_line(
         self, start, end, stroke_width=None, stroke=None, stroke_dasharray=None
@@ -270,7 +272,8 @@ class DashCellDiagram(CellDiagram):
         )
 
     def _draw_polygon(self, points):
-        self._coord.children.append(dsvg.Polygon(points))
+        pts = " ".join(f"{x},{y}" for x, y in points)
+        self._coord.children.append(dsvg.Polygon(points=pts))
 
 
 def nonredundant(ops: List[MatrixOperator]):
