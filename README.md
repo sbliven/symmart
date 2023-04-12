@@ -5,21 +5,39 @@
 
 # SymmArt
 
-Art from symmetric transformations in the spirit of Frank A. Farris
+Art from symmetric transformations in the spirit of Frank A. Farris. For more about the
+mathematics in this package, see his book:
+
+> Frank A. Farris. "Creating Symmetry: The Artful Mathematics of Wallpaper Patterns"
+> *Princeton University Press* (2015)
 
 
 * Free software: GNU General Public License v3
 * Documentation: https://symmart.readthedocs.io.
 
 
-## Features
+## Usage
 
-* TODO
+To experiment with Farris' symmetric functions, run the GUI:
+
+```
+python -m symmart
+```
+
+This starts a dash app on [http://localhost:8050/](http://127.0.0.1:8050/).
+
+There are also a number of jupyter notebooks provided in the `examples` directory.
+Notebooks starting with 'Farris XX' attempt to replicate figures from the book
+(using my own color-wheels).
+
 
 ## Credits
 
-This package was created with Cookiecutter_ and the `sbliven/cookiecutter-pypackage-noir`_ project template.
+Python library by Spencer Bliven. Licensed GPL3.
 
-.. _Cookiecutter: https://github.com/audreyr/cookiecutter
-.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
-.. _`sbliven/cookiecutter-pypackage-noir`: https://github.com/sbliven/cookiecutter-pypackage-noir
+Example images are copyright Spencer Bliven and licensed CC-BY 3.0
+
+Concept by Frank A. Farris. Please buy his book!
+
+> Frank A. Farris. "Creating Symmetry: The Artful Mathematics of Wallpaper Patterns"
+> *Princeton University Press* (2015)

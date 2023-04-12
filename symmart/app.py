@@ -145,7 +145,7 @@ def lattice_tab(app, lattices):
     )
     def update_spacegroup_dropdown(lattice):
         spacegroups = wallpaper_lattices[lattice.lower()]
-        print(f"New sg {spacegroups[0]}")
+        # print(f"New sg {spacegroups[0]}")
         return spacegroups, spacegroups[0]
 
     @app.callback(
@@ -172,7 +172,7 @@ def lattice_tab(app, lattices):
         else:
             a_changed = changed.startswith("cell-a")
             a, b = balance_cell(lattice, a, b, a_changed)
-        print(f"New cell {a}, {b}")
+        # print(f"New cell {a}, {b}")
         return a.real, a.imag, b.real, b.imag
 
     @app.callback(
@@ -195,7 +195,7 @@ def lattice_tab(app, lattices):
         if spacegroup is not None:
             gen = wallpaper_generators[spacegroup.lower()]
             dia.draw_ops(gen)
-        print(f"Updating cell diagram for {spacegroup}")
+        # print(f"Updating cell diagram for {spacegroup}")
         svg = dia.draw()
         if type(svg).__name__ != "Svg":
             type(svg)
