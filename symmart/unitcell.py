@@ -30,24 +30,28 @@ class CellDiagram(ABC):
         ...
 
     @abstractmethod
-    def _draw_circle(self, center, r, fill="red"):
+    def _draw_circle(self, center, r, fill=None):
         ...
 
     @abstractmethod
     def _draw_polygon(self, points):
         ...
 
+    @abstractmethod
+    def _draw_rect(self, corner1, corner2, fill=None):
+        ...
+
     def draw_cell(self):
         corners = np.array((0, self.a, self.a + self.b, self.b))
         xmin, xmax = corners.real.min(), corners.real.max()
         ymin, ymax = corners.imag.min(), corners.imag.max()
-        # self._coord.add(
-        #     self._diagram.rect(
-        #         (xmin - self.margin, ymin - self.margin),
-        #         (xmax - xmin + self.margin * 2, ymax - ymin + self.margin * 2),
-        #         fill="yellow",
-        #     )
-        # )
+
+        # Background
+        self._draw_rect(
+            (xmin - self.margin, ymin - self.margin),
+            (xmax - xmin + self.margin * 2, ymax - ymin + self.margin * 2),
+            fill="white",
+        )
 
         self._set_viewbox(
             xmin - self.margin,
@@ -71,6 +75,7 @@ class CellDiagram(ABC):
         "Draw unit cell operators"
         if expand:
             ops = complete_group(ops)
+            ops = expand_group(ops)
 
         def sg_order(op):
             "Layer order for ops"
@@ -226,11 +231,16 @@ class SvgwriteCellDiagram(CellDiagram):
             )
         )
 
-    def _draw_circle(self, center, r, fill="red"):
-        self._coord.add(self._diagram.circle(center=center, r=r, fill=fill))
+    def _draw_circle(self, center, r, fill=None):
+        args = {k: v for k, v in [("fill", fill)] if v is not None}
+        self._coord.add(self._diagram.circle(center=center, r=r, **args))
 
     def _draw_polygon(self, points):
         self._coord.add(self._diagram.polygon(points))
+
+    def _draw_rect(self, corner1, corner2, fill=None):
+        args = {k: v for k, v in [("fill", fill)] if v is not None}
+        self._coord.add(self._diagram.rect(corner1, corner2, **args))
 
 
 class DashCellDiagram(CellDiagram):
@@ -275,6 +285,14 @@ class DashCellDiagram(CellDiagram):
         pts = " ".join(f"{x},{y}" for x, y in points)
         self._coord.children.append(dsvg.Polygon(points=pts))
 
+    def _draw_rect(self, corner1, corner2, fill=None):
+        args = {k: v for k, v in [("fill", fill)] if v is not None}
+        x1, y1 = corner1
+        x2, y2 = corner2
+        self._coord.children.append(
+            dsvg.Rect(x=x1, y=y1, width=x2 - x1, height=y2 - y1, **args)
+        )
+
 
 def nonredundant(ops: List[MatrixOperator]):
     "Remove overlapping rotation operators"
@@ -296,6 +314,46 @@ def nonredundant(ops: List[MatrixOperator]):
         by_sg["𝜌"] = by_fp.values()
     # print(by_sg)
     return [op for sg in by_sg.values() for op, _ in sg]
+
+
+def expand_group(ops: List[MatrixOperator]):
+    𝜏1 = MatrixOperator([[1, 0, 1], [0, 1, 0], [0, 0, 1]], "𝜏1")
+    𝜏i = MatrixOperator([[1, 0, 0], [0, 1, 1], [0, 0, 1]], "𝜏i")
+
+    for op in ops:
+        yield op
+        fp = op.fixed_point()
+        if fp is not None:
+            if fp[0] == 0:
+                yield 𝜏1 * op * 𝜏1.inv()
+            if fp[1] == 0:
+                yield 𝜏i * op * 𝜏i.inv()
+            if fp == [0,0]:
+                yield 𝜏1 * 𝜏i * op * 𝜏i.inv() * 𝜏1.inv()
+        else:
+            ln = op.stable_line()
+            if ln is not None:
+                (px, py), (lx, ly), (tx, ty) = ln
+                # normal = (-ly, lx)
+                # Choose 𝜏1 or 𝜏i based on projection to normal
+                if lx == 0 or (0 < abs(ly) <= abs(lx)):
+                    𝜏 = 𝜏1
+                    𝜏_proj = -ly
+                else:
+                    𝜏 = 𝜏i
+                    𝜏_proj = lx
+                p_proj = py * lx - px * ly  # project p onto normal
+
+                # Unit box corners, projected onto the normal vector
+                bounds = [0, -ly, lx, lx - ly]
+                b1 = (min(bounds) - p_proj) / 𝜏_proj
+                b2 = (max(bounds) - p_proj) / 𝜏_proj
+                if b1 > b2:
+                    b1, b2 = b2, b1
+                # min(bounds) ≤ i*𝜏_proj + p_proj ≤ max(bounds)
+                for i in range(int(np.ceil(b1)), int(np.floor(b2)) + 1):
+                    if i != 0:
+                        yield 𝜏 ** i * op * 𝜏 ** -i
 
 
 def line_in_bb(px, py, lx, ly, bb_x0=0, bb_x1=1, bb_y0=0, bb_y1=1):

@@ -101,7 +101,8 @@ class MatrixOperator:
         - point groups: the fixed point is in the unit cell.
           Note that powers of a point group are also in the unit cell (eg both 𝜌4 and
           𝜌2).
-        - reflection: Special cases were chosen (arbitrarily) for each stable line
+        - reflection: Special cases were chosen (arbitrarily) for each stable line.
+          In lattice coordinates:
             - Horizontal: y = {0,1,2,3}/4
             - Vertical: x = {0,1,2,3}/4
             - Origin: x+y=0, x-2y=0, x-y=0, or 2x-y=0
@@ -150,16 +151,6 @@ class MatrixOperator:
                 return True
             return False
 
-            #
-            # return (0 <= qx < 1) and (0 <= qy < 1) and
-
-            # if abs(tx) >= 1 or abs(ty) >= 1:
-            #    return False
-            # if lx == 0:  # vertical
-            #     return 0 <= px < 1
-            # y0 = -px * ly / lx + py
-            # y1 = (1 - px) * ly / lx + py
-            # return (y0 < 1 or y1 < 1) and (y0 >= 0 or y1 >= 0)
         # Translation, Identity
         if self.mat[0, 2] == 0:
             return self.mat[1, 2] == 1
