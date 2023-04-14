@@ -11,7 +11,7 @@ def test_expand_group():
         𝜏1 ** 2 * 𝜏i ** 2 * 𝜌2,
     }, 𝜌2.description()
     assert list(expand_group([𝜏1 * 𝜏i * 𝜌2])) == [𝜏1 * 𝜏i * 𝜌2]
-    assert set(expand_group([𝜏1 * 𝜌2])) == {𝜏1 * 𝜌2, 𝜏1 * 𝜏i**2 * 𝜌2}
+    assert set(expand_group([𝜏1 * 𝜌2])) == {𝜏1 * 𝜌2, 𝜏1 * 𝜏i ** 2 * 𝜌2}
 
     assert set(expand_group([𝜎x])) == {𝜎x, 𝜏i ** 2 * 𝜎x}, 𝜎x.description()
 

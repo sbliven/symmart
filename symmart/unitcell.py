@@ -38,26 +38,28 @@ class CellDiagram(ABC):
         ...
 
     @abstractmethod
-    def _draw_rect(self, corner1, corner2, fill=None):
+    def _draw_rect(self, corner1, size, fill=None):
         ...
 
     def draw_cell(self):
         corners = np.array((0, self.a, self.a + self.b, self.b))
         xmin, xmax = corners.real.min(), corners.real.max()
         ymin, ymax = corners.imag.min(), corners.imag.max()
+        w = xmax - xmin
+        h = ymax - ymin
 
         # Background
         self._draw_rect(
             (xmin - self.margin, ymin - self.margin),
-            (xmax - xmin + self.margin * 2, ymax - ymin + self.margin * 2),
+            (w + self.margin * 2, h + self.margin * 2),
             fill="white",
         )
 
         self._set_viewbox(
             xmin - self.margin,
-            ymin - ymax - self.margin,
-            xmax - xmin + self.margin * 2,
-            ymax - ymin + self.margin * 2,
+            -ymin - h - self.margin,
+            w + self.margin * 2,
+            h + self.margin * 2,
         )
         for i in range(4):
             start = corners[i]
@@ -238,9 +240,9 @@ class SvgwriteCellDiagram(CellDiagram):
     def _draw_polygon(self, points):
         self._coord.add(self._diagram.polygon(points))
 
-    def _draw_rect(self, corner1, corner2, fill=None):
+    def _draw_rect(self, corner1, size, fill=None):
         args = {k: v for k, v in [("fill", fill)] if v is not None}
-        self._coord.add(self._diagram.rect(corner1, corner2, **args))
+        self._coord.add(self._diagram.rect(corner1, size, **args))
 
 
 class DashCellDiagram(CellDiagram):
@@ -285,13 +287,11 @@ class DashCellDiagram(CellDiagram):
         pts = " ".join(f"{x},{y}" for x, y in points)
         self._coord.children.append(dsvg.Polygon(points=pts))
 
-    def _draw_rect(self, corner1, corner2, fill=None):
+    def _draw_rect(self, corner1, size, fill=None):
         args = {k: v for k, v in [("fill", fill)] if v is not None}
         x1, y1 = corner1
-        x2, y2 = corner2
-        self._coord.children.append(
-            dsvg.Rect(x=x1, y=y1, width=x2 - x1, height=y2 - y1, **args)
-        )
+        w, h = size
+        self._coord.children.append(dsvg.Rect(x=x1, y=y1, width=w, height=h, **args))
 
 
 def nonredundant(ops: List[MatrixOperator]):
@@ -328,7 +328,7 @@ def expand_group(ops: List[MatrixOperator]):
                 yield 𝜏1 * op * 𝜏1.inv()
             if fp[1] == 0:
                 yield 𝜏i * op * 𝜏i.inv()
-            if fp == [0,0]:
+            if fp == [0, 0]:
                 yield 𝜏1 * 𝜏i * op * 𝜏i.inv() * 𝜏1.inv()
         else:
             ln = op.stable_line()

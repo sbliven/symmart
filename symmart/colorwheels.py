@@ -5,10 +5,10 @@ picture.
 """
 
 import numpy as np
-from importlib_resources import files  # backport for python < 3.9
 from PIL import Image
 from scipy import interpolate
 
+from .images import get_builtin_image
 from .util import grid_points, unit_box
 
 # Synthetic wheels
@@ -230,7 +230,5 @@ class LazyWheel:
 
     def __call__(self, *args, **kwargs):
         if self._wheel is None:
-            self._wheel = image_wheel(
-                files("symmart.images").joinpath(self._path), **self._kwargs
-            )
+            self._wheel = image_wheel(get_builtin_image(self._path), **self._kwargs)
         return self._wheel(*args, **kwargs)

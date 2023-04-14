@@ -30,7 +30,7 @@ def plot_curves(
     cols=None,
     colors=px.colors.cyclical.Phase
 ):
-    "plot several complex parametric curves"
+    "plot several complex parametric curves as subplots"
     t = np.linspace(start, end, n)
     if rows is None:
         rows = int(np.ceil(np.sqrt(len(fns))))
